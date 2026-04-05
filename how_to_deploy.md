@@ -16,3 +16,4 @@ docker build -t $IMAGE:latest . && docker push $IMAGE:latest
 
 # 5. Full apply (provisions Cloud SQL, Memorystore, deploys Kafka + app)
 terraform apply
+
