@@ -1,8 +1,17 @@
+# DEPRECATED in GCP deployments.
+#
+# Kafka is deployed on GKE via the Bitnami Helm chart, managed entirely by Terraform.
+# See terraform/modules/kubernetes-app/main.tf (helm_release.kafka)
+#
+# This file is kept for reference only.
+# Do NOT apply this manually in GCP – Terraform manages the Helm release.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kafka
   namespace: ledger
+  labels:
+    environment: local-only
 spec:
   replicas: 1
   selector:
@@ -51,4 +60,3 @@ spec:
     - name: kafka
       port: 9092
       targetPort: 9092
-

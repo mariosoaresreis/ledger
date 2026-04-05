@@ -1,8 +1,17 @@
+# DEPRECATED in GCP deployments.
+#
+# Redis is replaced by Cloud Memorystore (managed by Terraform).
+# See terraform/modules/memorystore/
+#
+# This file is kept for local development only (see compose.yaml).
+# Do NOT apply this in GCP – Redis is provisioned entirely by Terraform.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redis
   namespace: ledger
+  labels:
+    environment: local-only
 spec:
   replicas: 1
   selector:

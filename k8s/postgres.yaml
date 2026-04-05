@@ -1,8 +1,17 @@
+# DEPRECATED in GCP deployments.
+#
+# PostgreSQL is replaced by Cloud SQL (managed by Terraform).
+# See terraform/modules/cloud-sql/
+#
+# This file is kept for local development only (see compose.yaml).
+# Do NOT apply this in GCP – the database is provisioned entirely by Terraform.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
   namespace: ledger
+  labels:
+    environment: local-only
 spec:
   replicas: 1
   selector:
@@ -44,4 +53,3 @@ spec:
     - name: postgres
       port: 5432
       targetPort: 5432
-

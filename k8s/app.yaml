@@ -15,8 +15,10 @@ spec:
     spec:
       containers:
         - name: ledger-command-service
-          image: ledger-command-service:latest
-          imagePullPolicy: IfNotPresent
+          # Image is managed by Terraform (terraform/modules/kubernetes-app/main.tf).
+          # Format: <region>-docker.pkg.dev/<project>/ledger/ledger-command-service:<tag>
+          image: us-central1-docker.pkg.dev/YOUR_PROJECT_ID/ledger/ledger-command-service:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           envFrom:
@@ -28,14 +30,23 @@ spec:
             httpGet:
               path: /actuator/health
               port: 8080
-            initialDelaySeconds: 20
+            initialDelaySeconds: 30
             periodSeconds: 10
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /actuator/health
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60
             periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
 ---
 apiVersion: v1
 kind: Service
@@ -47,7 +58,8 @@ spec:
     app: ledger-command-service
   ports:
     - name: http
-      port: 8080
+      port: 80
       targetPort: 8080
-  type: ClusterIP
-
+  # LoadBalancer provisions a GCP external TCP load balancer.
+  # Use "ClusterIP" + an Ingress for TLS termination in production.
+  type: LoadBalancer

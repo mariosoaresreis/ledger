@@ -3,11 +3,17 @@ kind: ConfigMap
 metadata:
   name: ledger-command-config
   namespace: ledger
+  # NOTE: In GCP deployments this ConfigMap is fully managed by Terraform.
+  # The values below are updated automatically from Cloud SQL and Memorystore outputs.
+  # See terraform/modules/kubernetes-app/main.tf
 data:
-  LEDGER_DB_HOST: postgres
+  # Cloud SQL PostgreSQL private IP (set by Terraform)
+  LEDGER_DB_HOST: "MANAGED_BY_TERRAFORM"
   LEDGER_DB_PORT: "5432"
-  LEDGER_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-  LEDGER_REDIS_HOST: redis
+  # Kafka deployed on GKE via Helm (release name = kafka, namespace = ledger)
+  LEDGER_KAFKA_BOOTSTRAP_SERVERS: "kafka.ledger.svc.cluster.local:9092"
+  # Cloud Memorystore Redis private IP (set by Terraform)
+  LEDGER_REDIS_HOST: "MANAGED_BY_TERRAFORM"
   LEDGER_REDIS_PORT: "6379"
 ---
 apiVersion: v1
@@ -15,8 +21,9 @@ kind: Secret
 metadata:
   name: ledger-command-secret
   namespace: ledger
+  # NOTE: Credentials are managed by Terraform in GCP deployments.
+  # See terraform/modules/kubernetes-app/main.tf
 type: Opaque
 stringData:
   LEDGER_DB_USERNAME: ledger
-  LEDGER_DB_PASSWORD: ledger
-
+  LEDGER_DB_PASSWORD: MANAGED_BY_TERRAFORM
