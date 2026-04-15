@@ -1,10 +1,10 @@
 # Copy this file to terraform.tfvars and fill in your values.
 # Never commit terraform.tfvars to version control.
-project_id   = "your-gcp-project-id"
+project_id   = "ledger-493222"
 environment  = "dev"
 region       = "us-central1"
 # Database
-db_password  = "CHANGE_ME_USE_A_STRONG_PASSWORD"
+db_password  = "R@ndezv0usW1thR@ma"
 # GKE – minimal dev sizing
 machine_type = "e2-standard-2"
 node_count   = 2

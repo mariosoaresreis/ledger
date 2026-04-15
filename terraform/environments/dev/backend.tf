@@ -1,10 +1,10 @@
 # Remote state stored in GCS.
 # Create the bucket before running terraform init:
-#   gsutil mb -p YOUR_PROJECT_ID -l us-central1 gs://YOUR_PROJECT_ID-ledger-tfstate
-#   gsutil versioning set on gs://YOUR_PROJECT_ID-ledger-tfstate
+#   gsutil mb -p ledger-493222 -l us-central1 gs://ledger-493222-tfstate
+#   gsutil versioning set on gs://ledger-493222-tfstate
 terraform {
   backend "gcs" {
-    bucket = "REPLACE_WITH_YOUR_PROJECT_ID-ledger-tfstate"
+    bucket = "ledger-493222-tfstate"
     prefix = "ledger/dev/terraform.tfstate"
   }
 }
