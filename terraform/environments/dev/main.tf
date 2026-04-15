@@ -3,6 +3,7 @@ locals {
   gcp_services = [
     "container.googleapis.com",
     "sqladmin.googleapis.com",
+    "redis.googleapis.com",
     "artifactregistry.googleapis.com",
     "servicenetworking.googleapis.com",
     "compute.googleapis.com",
@@ -55,15 +56,15 @@ module "cloud_sql" {
   depends_on = [module.network]
 }
 # ── Cloud Memorystore (Redis 7) ───────────────────────────────────────────────
-# module "memorystore" {
-#   source = "../../modules/memorystore"
-#   project_id     = var.project_id
-#   environment    = var.environment
-#   region         = var.region
-#   vpc_self_link  = module.network.vpc_self_link
-#   memory_size_gb = var.redis_memory_size_gb
-#   depends_on = [module.network]
-# }
+module "memorystore" {
+  source = "../../modules/memorystore"
+  project_id     = var.project_id
+  environment    = var.environment
+  region         = var.region
+  vpc_self_link  = module.network.vpc_self_link
+  memory_size_gb = var.redis_memory_size_gb
+  depends_on = [module.network]
+}
 # ── Artifact Registry ─────────────────────────────────────────────────────────
 module "artifact_registry" {
   source = "../../modules/artifact-registry"
@@ -77,9 +78,9 @@ module "kubernetes_app" {
   db_host      = module.cloud_sql.private_ip
   db_username  = var.db_username
   db_password  = var.db_password
-  redis_host   = "redis-master.default.svc.cluster.local" # In-cluster Redis for dev
+  redis_host   = module.memorystore.redis_host
   app_image    = "${module.artifact_registry.repository_url}/ledger-command-service:${var.app_image_tag}"
   app_replicas = var.app_replicas
   kafka_replicas = var.kafka_replicas
-  depends_on = [module.gke, module.cloud_sql]
+  depends_on = [module.gke, module.cloud_sql, module.memorystore]
 }
