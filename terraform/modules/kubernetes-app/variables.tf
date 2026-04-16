@@ -17,7 +17,8 @@ variable "db_password" {
 
 variable "redis_host" {
   type        = string
-  description = "Private IP of the Cloud Memorystore Redis instance"
+  description = "Private IP of the Cloud Memorystore Redis instance (optional; if not provided, in-cluster Redis will be used)"
+  default     = ""
 }
 
 variable "app_image" {

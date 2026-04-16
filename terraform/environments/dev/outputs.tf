@@ -15,11 +15,6 @@ output "cloud_sql_private_ip" {
   value       = module.cloud_sql.private_ip
   sensitive   = true
 }
-output "redis_host" {
-  description = "Private IP of the Memorystore Redis instance"
-  value       = module.memorystore.redis_host
-  sensitive   = true
-}
 output "artifact_registry_url" {
   description = "Artifact Registry URL – prefix your image tags with this"
   value       = module.artifact_registry.repository_url

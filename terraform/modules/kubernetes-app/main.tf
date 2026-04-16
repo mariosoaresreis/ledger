@@ -23,8 +23,8 @@ resource "kubernetes_config_map" "ledger_config" {
     # Kafka deployed on GKE via Helm; service name = <release-name>.<namespace>
     LEDGER_KAFKA_BOOTSTRAP_SERVERS = "${var.kafka_release_name}.${kubernetes_namespace.ledger.metadata[0].name}.svc.cluster.local:9092"
 
-    # Cloud Memorystore private IP (set by Terraform from Memorystore module output)
-    LEDGER_REDIS_HOST = var.redis_host
+    # Redis: use Cloud Memorystore if provided, otherwise use in-cluster Redis
+    LEDGER_REDIS_HOST = var.redis_host != "" ? var.redis_host : "redis.${kubernetes_namespace.ledger.metadata[0].name}.svc.cluster.local"
     LEDGER_REDIS_PORT = "6379"
   }
 }
@@ -44,13 +44,133 @@ resource "kubernetes_secret" "ledger_secret" {
   type = "Opaque"
 }
 
-# ── Kafka – Bitnami Helm chart in KRaft mode (no Zookeeper) ──────────────────
+# ── In-Cluster Redis (StatefulSet) – used when redis_host is not provided ──────
+resource "kubernetes_stateful_set" "redis" {
+  count            = var.redis_host == "" ? 1 : 0
+  wait_for_rollout = false
+
+  metadata {
+    name      = "redis"
+    namespace = kubernetes_namespace.ledger.metadata[0].name
+    labels = {
+      app        = "redis"
+      managed-by = "terraform"
+    }
+  }
+
+  spec {
+    service_name = "redis"
+    replicas     = 1
+
+    selector {
+      match_labels = {
+        app = "redis"
+      }
+    }
+
+    template {
+      metadata {
+        labels = {
+          app = "redis"
+        }
+      }
+
+      spec {
+        container {
+          name              = "redis"
+          image             = "redis:7-alpine"
+          image_pull_policy = "IfNotPresent"
+
+          port {
+            name           = "redis"
+            container_port = 6379
+            protocol       = "TCP"
+          }
+
+          resources {
+            requests = {
+              cpu    = "50m"
+              memory = "64Mi"
+            }
+            limits = {
+              cpu    = "100m"
+              memory = "128Mi"
+            }
+          }
+
+          volume_mount {
+            name       = "redis-data"
+            mount_path = "/data"
+          }
+        }
+
+        security_context {
+          fs_group = 999
+        }
+      }
+    }
+
+    volume_claim_template {
+      metadata {
+        name = "redis-data"
+      }
+
+      spec {
+        access_modes       = ["ReadWriteOnce"]
+        storage_class_name = "standard"
+
+        resources {
+          requests = {
+            storage = "1Gi"
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [kubernetes_namespace.ledger]
+}
+
+# ── Redis Service – expose Redis within the cluster ──────────────────────────
+resource "kubernetes_service" "redis" {
+  count = var.redis_host == "" ? 1 : 0
+
+  metadata {
+    name      = "redis"
+    namespace = kubernetes_namespace.ledger.metadata[0].name
+    labels = {
+      app        = "redis"
+      managed-by = "terraform"
+    }
+  }
+
+  spec {
+    cluster_ip = "None"  # Headless service for StatefulSet
+
+    selector = {
+      app = "redis"
+    }
+
+    port {
+      name       = "redis"
+      port       = 6379
+      target_port = 6379
+      protocol    = "TCP"
+    }
+  }
+
+  depends_on = [kubernetes_namespace.ledger]
+}
+
+
 resource "helm_release" "kafka" {
-  name       = var.kafka_release_name
-  repository = "https://charts.bitnami.com/bitnami"
-  chart      = "kafka"
-  version    = "26.8.5" # Kafka 3.7.x – pin and bump deliberately
-  namespace  = kubernetes_namespace.ledger.metadata[0].name
+  name               = var.kafka_release_name
+  repository         = "https://charts.bitnami.com/bitnami"
+  chart              = "kafka"
+  version            = "26.8.5" # Kafka 3.7.x – pin and bump deliberately
+  namespace          = kubernetes_namespace.ledger.metadata[0].name
+  timeout            = 600
+  wait               = false
 
   # KRaft combined mode: single pod acts as broker + controller
   set {
@@ -100,11 +220,34 @@ resource "helm_release" "kafka" {
     value = "true"
   }
 
+  # Reduce resource requirements for dev environment
+  set {
+    name  = "controller.resources.requests.cpu"
+    value = "50m"
+  }
+
+  set {
+    name  = "controller.resources.requests.memory"
+    value = "128Mi"
+  }
+
+  set {
+    name  = "controller.resources.limits.cpu"
+    value = "200m"
+  }
+
+  set {
+    name  = "controller.resources.limits.memory"
+    value = "256Mi"
+  }
+
   depends_on = [kubernetes_namespace.ledger]
 }
 
 # ── Application Deployment ────────────────────────────────────────────────────
 resource "kubernetes_deployment" "ledger_app" {
+  wait_for_rollout = false
+
   metadata {
     name      = "ledger-command-service"
     namespace = kubernetes_namespace.ledger.metadata[0].name
@@ -159,9 +302,9 @@ resource "kubernetes_deployment" "ledger_app" {
               path = "/actuator/health"
               port = 8080
             }
-            initial_delay_seconds = 30
+            initial_delay_seconds = 120
             period_seconds        = 10
-            failure_threshold     = 3
+            failure_threshold     = 5
           }
 
           liveness_probe {
@@ -169,19 +312,19 @@ resource "kubernetes_deployment" "ledger_app" {
               path = "/actuator/health"
               port = 8080
             }
-            initial_delay_seconds = 60
+            initial_delay_seconds = 180
             period_seconds        = 15
             failure_threshold     = 3
           }
 
           resources {
             requests = {
-              cpu    = "250m"
-              memory = "512Mi"
+              cpu    = "50m"
+              memory = "128Mi"
             }
             limits = {
-              cpu    = "1000m"
-              memory = "1Gi"
+              cpu    = "200m"
+              memory = "256Mi"
             }
           }
         }
@@ -193,10 +336,11 @@ resource "kubernetes_deployment" "ledger_app" {
     helm_release.kafka,
     kubernetes_config_map.ledger_config,
     kubernetes_secret.ledger_secret,
+    kubernetes_stateful_set.redis,
   ]
 }
 
-# ── Application Service – LoadBalancer exposes the API externally ─────────────
+# ── Application Service – NodePort exposes the API externally ──────────────────
 resource "kubernetes_service" "ledger_app" {
   metadata {
     name      = "ledger-command-service"
@@ -204,10 +348,6 @@ resource "kubernetes_service" "ledger_app" {
     labels = {
       app        = "ledger-command-service"
       managed-by = "terraform"
-    }
-    annotations = {
-      # GCP creates a regional TCP load balancer by default; swap for internal LB if needed:
-      # "cloud.google.com/load-balancer-type" = "Internal"
     }
   }
 
@@ -223,7 +363,44 @@ resource "kubernetes_service" "ledger_app" {
       protocol    = "TCP"
     }
 
-    type = "LoadBalancer"
+    type = "NodePort"
   }
 }
 
+# ── Ingress – External Access via LoadBalancer ───────────────────────────────
+resource "kubernetes_ingress_v1" "ledger_app" {
+  metadata {
+    name      = "ledger-command-service"
+    namespace = kubernetes_namespace.ledger.metadata[0].name
+    labels = {
+      app        = "ledger-command-service"
+      managed-by = "terraform"
+    }
+    annotations = {
+      "kubernetes.io/ingress.class" = "gce"
+      # GCP creates a regional TCP load balancer by default
+      # "cloud.google.com/load-balancer-type" = "Internal"  # Uncomment for internal LB
+    }
+  }
+
+  spec {
+    rule {
+      http {
+        path {
+          path      = "/"
+          path_type = "Prefix"
+          backend {
+            service {
+              name = kubernetes_service.ledger_app.metadata[0].name
+              port {
+                number = 80
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [kubernetes_service.ledger_app]
+}

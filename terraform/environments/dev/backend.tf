@@ -4,7 +4,7 @@
 #   gsutil versioning set on gs://YOUR_PROJECT_ID-ledger-tfstate
 terraform {
   backend "gcs" {
-    bucket = "REPLACE_WITH_YOUR_PROJECT_ID-ledger-tfstate"
+    bucket = "ledger-493222-ledger-tfstate"
     prefix = "ledger/dev/terraform.tfstate"
   }
 }

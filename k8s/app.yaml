@@ -17,7 +17,8 @@ spec:
         - name: ledger-command-service
           # Image is managed by Terraform (terraform/modules/kubernetes-app/main.tf).
           # Format: <region>-docker.pkg.dev/<project>/ledger/ledger-command-service:<tag>
-          image: us-central1-docker.pkg.dev/YOUR_PROJECT_ID/ledger/ledger-command-service:latest
+          image: us-central1-docker.pkg.dev/ledger-493222/ledger/ledger-command-service:latest
+          
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

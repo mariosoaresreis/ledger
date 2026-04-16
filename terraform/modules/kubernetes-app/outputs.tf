@@ -1,6 +1,10 @@
 output "app_service_ip" {
-  description = "External IP of the ledger-command-service LoadBalancer (may take a minute to provision)"
-  value       = kubernetes_service.ledger_app.status[0].load_balancer[0].ingress[0].ip
+  description = "NodePort service details for ledger-command-service"
+  value       = {
+    cluster_ip = kubernetes_service.ledger_app.spec[0].cluster_ip
+    node_port  = kubernetes_service.ledger_app.spec[0].port[0].node_port
+    type       = kubernetes_service.ledger_app.spec[0].type
+  }
 }
 
 output "kafka_service_host" {
@@ -12,4 +16,3 @@ output "namespace" {
   description = "Kubernetes namespace used for the ledger workloads"
   value       = kubernetes_namespace.ledger.metadata[0].name
 }
-
