@@ -5,7 +5,6 @@ import com.marioreis.ledger.service.StoredCommandResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -15,6 +14,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -41,11 +41,7 @@ public class LedgerCommandController {
     @ApiResponse(responseCode = "400", description = "Invalid request parameters")
     @ApiResponse(responseCode = "409", description = "Idempotency key conflict")
     public ResponseEntity<CommandResponse> createAccount(@RequestHeader("Idempotency-Key") UUID idempotencyKey,
-                                                         @Valid @RequestBody(
-                                                                 description = "Account creation parameters",
-                                                                 required = true,
-                                                                 content = @Content(schema = @Schema(implementation = CreateAccountRequest.class))
-                                                         ) CreateAccountRequest request) {
+                                                         @Valid @RequestBody CreateAccountRequest request) {
         return toResponse(ledgerCommandService.createAccount(idempotencyKey, request));
     }
 
@@ -62,11 +58,7 @@ public class LedgerCommandController {
     @ApiResponse(responseCode = "409", description = "Account is frozen or closed")
     public ResponseEntity<CommandResponse> creditAccount(@RequestHeader("Idempotency-Key") UUID idempotencyKey,
                                                          @PathVariable UUID accountId,
-                                                         @Valid @RequestBody(
-                                                                 description = "Credit transaction parameters",
-                                                                 required = true,
-                                                                 content = @Content(schema = @Schema(implementation = MoneyCommandRequest.class))
-                                                         ) MoneyCommandRequest request) {
+                                                         @Valid @RequestBody MoneyCommandRequest request) {
         return toResponse(ledgerCommandService.creditAccount(idempotencyKey, accountId, request));
     }
 
@@ -83,11 +75,7 @@ public class LedgerCommandController {
     @ApiResponse(responseCode = "409", description = "Insufficient balance, account frozen/closed, or idempotency conflict")
     public ResponseEntity<CommandResponse> debitAccount(@RequestHeader("Idempotency-Key") UUID idempotencyKey,
                                                         @PathVariable UUID accountId,
-                                                        @Valid @RequestBody(
-                                                                description = "Debit transaction parameters",
-                                                                required = true,
-                                                                content = @Content(schema = @Schema(implementation = MoneyCommandRequest.class))
-                                                        ) MoneyCommandRequest request) {
+                                                        @Valid @RequestBody MoneyCommandRequest request) {
         return toResponse(ledgerCommandService.debitAccount(idempotencyKey, accountId, request));
     }
 
@@ -103,11 +91,7 @@ public class LedgerCommandController {
     @ApiResponse(responseCode = "404", description = "Source or target account not found")
     @ApiResponse(responseCode = "409", description = "Insufficient balance, account frozen/closed, or idempotency conflict")
     public ResponseEntity<CommandResponse> transfer(@RequestHeader("Idempotency-Key") UUID idempotencyKey,
-                                                    @Valid @RequestBody(
-                                                            description = "Transfer parameters",
-                                                            required = true,
-                                                            content = @Content(schema = @Schema(implementation = TransferRequest.class))
-                                                    ) TransferRequest request) {
+                                                    @Valid @RequestBody TransferRequest request) {
         return toResponse(ledgerCommandService.transfer(idempotencyKey, request));
     }
 
@@ -124,11 +108,7 @@ public class LedgerCommandController {
     @ApiResponse(responseCode = "409", description = "Invalid status transition")
     public ResponseEntity<CommandResponse> changeStatus(@RequestHeader("Idempotency-Key") UUID idempotencyKey,
                                                         @PathVariable UUID accountId,
-                                                        @Valid @RequestBody(
-                                                                description = "New account status",
-                                                                required = true,
-                                                                content = @Content(schema = @Schema(implementation = UpdateAccountStatusRequest.class))
-                                                        ) UpdateAccountStatusRequest request) {
+                                                        @Valid @RequestBody UpdateAccountStatusRequest request) {
         return toResponse(ledgerCommandService.changeStatus(idempotencyKey, accountId, request));
     }
 

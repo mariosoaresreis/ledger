@@ -220,6 +220,22 @@ resource "helm_release" "kafka" {
     value = "true"
   }
 
+  # Docker Hub tags used by this chart version may be unavailable; pin image to Bitnami public ECR.
+  set {
+    name  = "image.registry"
+    value = "public.ecr.aws"
+  }
+
+  set {
+    name  = "image.repository"
+    value = "bitnami/kafka"
+  }
+
+  set {
+    name  = "image.tag"
+    value = "3.7.0"
+  }
+
   # Reduce resource requirements for dev environment
   set {
     name  = "controller.resources.requests.cpu"
@@ -239,6 +255,58 @@ resource "helm_release" "kafka" {
   set {
     name  = "controller.resources.limits.memory"
     value = "256Mi"
+  }
+
+  # Dev-only: avoid aggressive probe restarts in single-node constrained clusters.
+  set {
+    name  = "controller.livenessProbe.enabled"
+    value = "false"
+  }
+
+  set {
+    name  = "controller.readinessProbe.enabled"
+    value = "false"
+  }
+
+  # Fallback probe tuning in case chart-level probe toggles are ignored by this version.
+  set {
+    name  = "livenessProbe.initialDelaySeconds"
+    value = "120"
+  }
+
+  set {
+    name  = "livenessProbe.failureThreshold"
+    value = "12"
+  }
+
+  set {
+    name  = "readinessProbe.initialDelaySeconds"
+    value = "90"
+  }
+
+  set {
+    name  = "readinessProbe.failureThreshold"
+    value = "12"
+  }
+
+  set {
+    name  = "controller.livenessProbe.initialDelaySeconds"
+    value = "120"
+  }
+
+  set {
+    name  = "controller.livenessProbe.failureThreshold"
+    value = "12"
+  }
+
+  set {
+    name  = "controller.readinessProbe.initialDelaySeconds"
+    value = "90"
+  }
+
+  set {
+    name  = "controller.readinessProbe.failureThreshold"
+    value = "12"
   }
 
   depends_on = [kubernetes_namespace.ledger]
