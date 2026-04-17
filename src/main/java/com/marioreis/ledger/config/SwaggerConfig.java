@@ -30,11 +30,11 @@ public class SwaggerConfig {
                                 .url("https://www.apache.org/licenses/LICENSE-2.0.html")))
                 .servers(List.of(
                         new Server()
-                                .url("http://localhost:8080")
-                                .description("Local Development"),
+                                .url("http://34.8.164.128")
+                                .description("GKE DEV"),
                         new Server()
-                                .url("https://api.ledger.example.com")
-                                .description("Production")));
+                                .url("http://localhost:8080")
+                                .description("Local Development")));
     }
 }
 
