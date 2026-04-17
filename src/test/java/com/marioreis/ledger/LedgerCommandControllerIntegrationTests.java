@@ -60,11 +60,11 @@ class LedgerCommandControllerIntegrationTests {
                 .getContentAsString();
 
         JsonNode json = objectMapper.readTree(response);
-        UUID accountId = UUID.fromString(json.get("primaryResourceId").asText());
+        UUID accountId = UUID.fromString(json.get("accountId").asText());
 
         assertThat(count("select count(*) from accounts where id = ?", accountId)).isEqualTo(1);
-        assertThat(count("select count(*) from ledger_events where aggregate_id = ?", accountId)).isEqualTo(1);
-        assertThat(count("select count(*) from outbox where aggregate_id = ?", accountId)).isEqualTo(1);
+        assertThat(count("select count(*) from ledger_events where account_id = ?", accountId)).isEqualTo(1);
+        assertThat(count("select count(*) from outbox where account_id = ?", accountId)).isEqualTo(1);
         assertThat(count("select count(*) from idempotency_records")).isEqualTo(1);
     }
 
@@ -101,7 +101,7 @@ class LedgerCommandControllerIntegrationTests {
 
         assertThat(secondJson.get("commandId").asText()).isEqualTo(firstJson.get("commandId").asText());
         assertThat(secondJson.get("idempotencyKey").asText()).isEqualTo(firstJson.get("idempotencyKey").asText());
-        assertThat(secondJson.get("primaryResourceId").asText()).isEqualTo(firstJson.get("primaryResourceId").asText());
+        assertThat(secondJson.get("accountId").asText()).isEqualTo(firstJson.get("accountId").asText());
         assertThat(secondJson.get("operation").asText()).isEqualTo("CREATE_ACCOUNT");
         assertThat(secondJson.get("events")).isEqualTo(firstJson.get("events"));
         assertThat(count("select count(*) from accounts")).isEqualTo(1);
@@ -200,7 +200,7 @@ class LedgerCommandControllerIntegrationTests {
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        return UUID.fromString(objectMapper.readTree(response).get("primaryResourceId").asText());
+        return UUID.fromString(objectMapper.readTree(response).get("accountId").asText());
     }
 
     private void credit(UUID accountId, String amount, String reference) throws Exception {

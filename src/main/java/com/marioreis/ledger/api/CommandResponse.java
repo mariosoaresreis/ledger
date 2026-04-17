@@ -9,7 +9,7 @@ import java.util.UUID;
 @Schema(
         name = "CommandResponse",
         description = "Response envelope for all command operations",
-        example = "{\"commandId\": \"550e8400-e29b-41d4-a716-446655440000\", \"idempotencyKey\": \"550e8400-e29b-41d4-a716-446655440001\", \"operation\": \"CREATE_ACCOUNT\", \"status\": \"ACCEPTED\", \"primaryResourceId\": \"550e8400-e29b-41d4-a716-446655440002\", \"events\": [], \"processedAt\": \"2024-01-15T10:30:00Z\"}"
+        example = "{\"commandId\": \"550e8400-e29b-41d4-a716-446655440000\", \"idempotencyKey\": \"550e8400-e29b-41d4-a716-446655440001\", \"operation\": \"CREATE_ACCOUNT\", \"status\": \"ACCEPTED\", \"accountId\": \"550e8400-e29b-41d4-a716-446655440002\", \"events\": [], \"processedAt\": \"2024-01-15T10:30:00Z\"}"
 )
 public record CommandResponse(
         @Schema(description = "Unique command ID", example = "550e8400-e29b-41d4-a716-446655440000")
@@ -24,8 +24,8 @@ public record CommandResponse(
         @Schema(description = "Command status (ACCEPTED, COMPLETED, REJECTED)", example = "ACCEPTED")
         String status,
 
-        @Schema(description = "Primary resource ID (usually the account ID)", example = "550e8400-e29b-41d4-a716-446655440002")
-        UUID primaryResourceId,
+        @Schema(description = "Account Id", example = "550e8400-e29b-41d4-a716-446655440002")
+        UUID accountId,
 
         @Schema(description = "List of events emitted during command processing")
         List<EventReceipt> events,

@@ -308,7 +308,7 @@ public class LedgerCommandService {
         }
     }
 
-    private EventReceipt appendEventAndOutbox(UUID aggregateId,
+    private EventReceipt appendEventAndOutbox(UUID accountId,
                                               LedgerEventType eventType,
                                               Object payload,
                                               long version,
@@ -316,12 +316,12 @@ public class LedgerCommandService {
                                               UUID idempotencyKey) {
         String jsonPayload = toJson(payload);
         try {
-            ledgerRepository.appendEvent(aggregateId, eventType, jsonPayload, version, occurredAt, idempotencyKey);
+            ledgerRepository.appendEvent(accountId, eventType, jsonPayload, version, occurredAt, idempotencyKey);
         } catch (DataIntegrityViolationException exception) {
-            throw LedgerException.conflict("Concurrent modification detected for aggregate %s".formatted(aggregateId));
+            throw LedgerException.conflict("Concurrent modification detected for aggregate %s".formatted(accountId));
         }
-        ledgerRepository.appendOutbox(aggregateId, eventType, jsonPayload);
-        return new EventReceipt(aggregateId, eventType.name(), version);
+        ledgerRepository.appendOutbox(accountId, eventType, jsonPayload);
+        return new EventReceipt(accountId, eventType.name(), version);
     }
 
     private String normalizeCurrency(String currency) {

@@ -85,11 +85,11 @@ public class LedgerRepository {
         ));
     }
 
-    public long nextVersion(UUID aggregateId) {
+    public long nextVersion(UUID accountId) {
         Long currentVersion = jdbcTemplate.queryForObject(
-                "select coalesce(max(version), 0) from ledger_events where aggregate_id = ?",
+                "select coalesce(max(version), 0) from ledger_events where account_id = ?",
                 Long.class,
-                aggregateId
+                accountId
         );
         return (currentVersion == null ? 0L : currentVersion) + 1L;
     }
@@ -116,7 +116,7 @@ public class LedgerRepository {
         );
     }
 
-    public void appendEvent(UUID aggregateId,
+    public void appendEvent(UUID accountId,
                             LedgerEventType eventType,
                             String payload,
                             long version,
@@ -124,11 +124,11 @@ public class LedgerRepository {
                             UUID idempotencyKey) {
         jdbcTemplate.update(
                 """
-                insert into ledger_events (id, aggregate_id, event_type, payload, version, occurred_at, idempotency_key)
+                insert into ledger_events (id, account_id, event_type, payload, version, occurred_at, idempotency_key)
                 values (?, ?, ?, cast(? as JSONB), ?, ?, ?)
                 """,
                 UUID.randomUUID(),
-                aggregateId,
+                accountId,
                 eventType.name(),
                 payload,
                 version,
@@ -137,29 +137,29 @@ public class LedgerRepository {
         );
     }
 
-    public void appendOutbox(UUID aggregateId, LedgerEventType eventType, String payload) {
+    public void appendOutbox(UUID accountId, LedgerEventType eventType, String payload) {
         jdbcTemplate.update(
                 """
-                insert into outbox (id, aggregate_id, event_type, payload, published_at)
+                insert into outbox (id, account_id, event_type, payload, published_at)
                 values (?, ?, ?, cast(? as JSONB), null)
                 """,
                 UUID.randomUUID(),
-                aggregateId,
+                accountId,
                 eventType.name(),
                 payload
         );
     }
 
-    private List<LedgerEventRow> findEventsByAggregate(UUID aggregateId) {
+    private List<LedgerEventRow> findEventsByAggregate(UUID accountId) {
         return jdbcTemplate.query(
                 """
                 select event_type, cast(payload as varchar) as payload, version
                 from ledger_events
-                where aggregate_id = ?
+                where account_id = ?
                 order by version asc
                 """,
                 EVENT_ROW_MAPPER,
-                aggregateId
+                accountId
         );
     }
 
