@@ -36,15 +36,18 @@ public class LedgerCommandService {
     private final IdempotencyRepository idempotencyRepository;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
+    private final KafkaEventPublisher kafkaEventPublisher;
 
     public LedgerCommandService(LedgerRepository ledgerRepository,
                                 IdempotencyRepository idempotencyRepository,
                                 ObjectMapper objectMapper,
-                                TransactionTemplate transactionTemplate) {
+                                TransactionTemplate transactionTemplate,
+                                KafkaEventPublisher kafkaEventPublisher) {
         this.ledgerRepository = ledgerRepository;
         this.idempotencyRepository = idempotencyRepository;
         this.objectMapper = objectMapper;
         this.transactionTemplate = transactionTemplate;
+        this.kafkaEventPublisher = kafkaEventPublisher;
     }
 
     public StoredCommandResponse createAccount(UUID idempotencyKey, CreateAccountRequest request) {
@@ -321,6 +324,7 @@ public class LedgerCommandService {
             throw LedgerException.conflict("Concurrent modification detected for aggregate %s".formatted(accountId));
         }
         ledgerRepository.appendOutbox(accountId, eventType, jsonPayload);
+        kafkaEventPublisher.publish(accountId, eventType.name(), jsonPayload, occurredAt);
         return new EventReceipt(accountId, eventType.name(), version);
     }
 

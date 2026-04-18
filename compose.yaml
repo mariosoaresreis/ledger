@@ -11,6 +11,18 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
 
+  postgres-query:
+    image: postgres:16
+    container_name: ledger-postgres-query
+    environment:
+      POSTGRES_DB: ledger_query
+      POSTGRES_USER: ledger_query
+      POSTGRES_PASSWORD: ledger_query
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-query-data:/var/lib/postgresql/data
+
   redis:
     image: redis:7
     container_name: ledger-redis
@@ -53,6 +65,27 @@ services:
     ports:
       - "8080:8080"
 
+  query:
+    build:
+      context: ../ledger-query-service
+      dockerfile: Dockerfile
+    container_name: ledger-query-service
+    depends_on:
+      - postgres-query
+      - redis
+      - kafka
+    environment:
+      QUERY_DB_HOST: postgres-query
+      QUERY_DB_PORT: 5432
+      QUERY_DB_USERNAME: ledger_query
+      QUERY_DB_PASSWORD: ledger_query
+      LEDGER_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      LEDGER_REDIS_HOST: redis
+      LEDGER_REDIS_PORT: 6379
+    ports:
+      - "8081:8081"
+
 volumes:
   postgres-data:
+  postgres-query-data:
 
