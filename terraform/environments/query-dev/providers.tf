@@ -7,9 +7,8 @@ data "google_client_config" "default" {}
 
 data "google_container_cluster" "query_gke" {
   name     = "${var.project_id}-${var.environment}-query-gke"
-  location = "${var.region}-a"
+  location = "${var.region}-b"
   project  = var.project_id
-  depends_on = [module.gke]
 }
 
 provider "kubernetes" {

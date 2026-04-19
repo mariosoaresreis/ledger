@@ -48,3 +48,24 @@ variable "db_password" {
   sensitive   = true
 }
 
+variable "db_name" {
+  type        = string
+  description = "PostgreSQL database name"
+  default     = "ledger"
+}
+
+variable "enable_public_ip" {
+  type        = bool
+  description = "Enable public IP on the Cloud SQL instance (use for cross-region access in dev)"
+  default     = false
+}
+
+variable "authorized_networks" {
+  type = list(object({
+    name  = string
+    value = string
+  }))
+  description = "Authorized networks for public IP access"
+  default     = []
+}
+

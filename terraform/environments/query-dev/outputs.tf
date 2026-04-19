@@ -6,8 +6,8 @@ output "query_gke_cluster_location" {
   value = module.gke.cluster_location
 }
 
-output "query_cloud_sql_private_ip" {
-  value     = module.cloud_sql.private_ip
+output "query_cloud_sql_ip" {
+  value     = module.cloud_sql.db_host
   sensitive = true
 }
 

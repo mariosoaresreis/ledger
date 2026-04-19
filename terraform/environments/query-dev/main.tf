@@ -34,6 +34,7 @@ module "gke" {
   project_id          = var.project_id
   environment         = "${var.environment}-query"
   region              = var.region
+  zone_suffix         = "b"
   vpc_id              = module.network.vpc_id
   subnet_name         = module.network.gke_subnet_name
   pods_range_name     = module.network.pods_range_name
@@ -54,6 +55,13 @@ module "cloud_sql" {
   tier          = var.db_tier
   db_username   = var.db_username
   db_password   = var.db_password
+  db_name       = "ledger_query"
+  # Public IP needed: query GKE (us-east1) and Cloud SQL (us-east1) are in separate VPCs
+  # with no private peering. For production, use Cloud SQL Auth Proxy instead.
+  enable_public_ip = true
+  authorized_networks = [
+    { name = "gke-query-nodes", value = "0.0.0.0/0" }
+  ]
   depends_on    = [module.network]
 }
 
@@ -61,7 +69,7 @@ module "cloud_sql" {
 module "kubernetes_query" {
   source = "../../modules/kubernetes-query"
 
-  query_db_host     = module.cloud_sql.private_ip
+  query_db_host     = module.cloud_sql.db_host
   query_db_username = var.db_username
   query_db_password = var.db_password
   # Kafka bootstrap is in the command VPC; use the external Kafka address or VPC peering address

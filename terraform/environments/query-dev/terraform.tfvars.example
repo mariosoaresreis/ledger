@@ -1,6 +1,6 @@
 project_id              = "ledger-493222"
-db_password             = "CHANGE_ME"
-kafka_bootstrap_servers = "COMMAND_KAFKA_EXTERNAL_IP:9092"
+db_password             = "L@rissa123"
+kafka_bootstrap_servers = "34.134.143.95:9092"
 artifact_registry_url   = "us-central1-docker.pkg.dev/ledger-493222/ledger"
 region                  = "us-east1"
 environment             = "dev"

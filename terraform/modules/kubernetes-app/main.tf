@@ -239,22 +239,28 @@ resource "helm_release" "kafka" {
   # Reduce resource requirements for dev environment
   set {
     name  = "controller.resources.requests.cpu"
-    value = "50m"
+    value = "100m"
   }
 
   set {
     name  = "controller.resources.requests.memory"
-    value = "128Mi"
+    value = "512Mi"
   }
 
   set {
     name  = "controller.resources.limits.cpu"
-    value = "200m"
+    value = "500m"
   }
 
   set {
     name  = "controller.resources.limits.memory"
-    value = "256Mi"
+    value = "768Mi"
+  }
+
+  # Cap JVM heap well below the container limit to leave room for off-heap (page cache, etc.)
+  set {
+    name  = "controller.heapOpts"
+    value = "-Xmx512m -Xms512m"
   }
 
   # Dev-only: avoid aggressive probe restarts in single-node constrained clusters.
@@ -312,6 +318,37 @@ resource "helm_release" "kafka" {
   depends_on = [kubernetes_namespace.ledger]
 }
 
+# External LoadBalancer for Kafka – allows the query service (us-east1) to reach
+# Kafka in the command cluster (us-central1) over the public internet.
+# For production, replace with VPC peering and remove this resource.
+resource "kubernetes_service" "kafka_external" {
+  metadata {
+    name      = "kafka-external"
+    namespace = kubernetes_namespace.ledger.metadata[0].name
+    annotations = {
+      "cloud.google.com/load-balancer-type" = "External"
+    }
+  }
+
+  spec {
+    type = "LoadBalancer"
+
+    selector = {
+      "app.kubernetes.io/name"      = "kafka"
+      "app.kubernetes.io/instance"  = var.kafka_release_name
+      "app.kubernetes.io/component" = "controller"
+    }
+
+    port {
+      name        = "kafka"
+      port        = 9092
+      target_port = 9092
+      protocol    = "TCP"
+    }
+  }
+
+  depends_on = [helm_release.kafka]
+}
 # ── Application Deployment ────────────────────────────────────────────────────
 resource "kubernetes_deployment" "ledger_app" {
   wait_for_rollout = false

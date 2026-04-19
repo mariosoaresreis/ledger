@@ -92,7 +92,7 @@ Example `terraform.tfvars`:
 ```hcl
 project_id              = "ledger-493222"
 db_password             = "s3cr3t-query-pw"
-kafka_bootstrap_servers = "34.8.164.128:9092"
+kafka_bootstrap_servers = "34.134.143.95:9092"
 app_image_tag           = "latest"
 ```
 

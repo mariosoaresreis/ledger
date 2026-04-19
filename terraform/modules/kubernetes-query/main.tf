@@ -50,9 +50,12 @@ resource "kubernetes_service" "redis" {
     namespace = kubernetes_namespace.ledger_query.metadata[0].name
   }
   spec {
-    selector = { app = "redis" }
-    port { port = 6379; target_port = 6379 }
+    selector   = { app = "redis" }
     cluster_ip = "None"
+    port {
+      port        = 6379
+      target_port = 6379
+    }
   }
 }
 
@@ -112,32 +115,50 @@ resource "kubernetes_deployment" "query_app" {
           image             = var.app_image
           image_pull_policy = "Always"
 
-          port { name = "http"; container_port = 8081 }
+          port {
+            name           = "http"
+            container_port = 8081
+          }
 
           env_from {
-            config_map_ref { name = kubernetes_config_map.query_config.metadata[0].name }
+            config_map_ref {
+              name = kubernetes_config_map.query_config.metadata[0].name
+            }
           }
           env_from {
-            secret_ref { name = kubernetes_secret.query_secret.metadata[0].name }
+            secret_ref {
+              name = kubernetes_secret.query_secret.metadata[0].name
+            }
+          }
+
+          env {
+            name  = "JAVA_TOOL_OPTIONS"
+            value = "-Xmx320m -Xms128m -XX:+UseContainerSupport"
           }
 
           readiness_probe {
-            http_get { path = "/actuator/health"; port = 8081 }
-            initial_delay_seconds = 90
+            http_get {
+              path = "/actuator/health"
+              port = 8081
+            }
+            initial_delay_seconds = 60
             period_seconds        = 10
-            failure_threshold     = 5
+            failure_threshold     = 10
           }
 
           liveness_probe {
-            http_get { path = "/actuator/health"; port = 8081 }
-            initial_delay_seconds = 120
+            http_get {
+              path = "/actuator/health"
+              port = 8081
+            }
+            initial_delay_seconds = 90
             period_seconds        = 15
-            failure_threshold     = 3
+            failure_threshold     = 5
           }
 
           resources {
-            requests = { cpu = "50m", memory = "128Mi" }
-            limits   = { cpu = "200m", memory = "256Mi" }
+            requests = { cpu = "50m", memory = "200Mi" }
+            limits   = { cpu = "500m", memory = "512Mi" }
           }
         }
       }

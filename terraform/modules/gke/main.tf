@@ -29,7 +29,7 @@ resource "google_project_iam_member" "gke_artifact_reader" {
 
 resource "google_container_cluster" "primary" {
   name     = "${local.name_prefix}-gke"
-  location = "${var.region}-a"
+  location = "${var.region}-${var.zone_suffix}"
   project  = var.project_id
 
   # Remove default node pool; we manage our own below
@@ -70,10 +70,14 @@ resource "google_container_cluster" "primary" {
 
 resource "google_container_node_pool" "primary" {
   name       = "${local.name_prefix}-node-pool"
-  location   = "${var.region}-a"
+  location   = "${var.region}-${var.zone_suffix}"
   cluster    = google_container_cluster.primary.name
   project    = var.project_id
   node_count = var.node_count
+
+  lifecycle {
+    ignore_changes = [node_count]
+  }
 
   autoscaling {
     min_node_count = var.min_nodes

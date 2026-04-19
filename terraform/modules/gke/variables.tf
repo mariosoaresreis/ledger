@@ -13,6 +13,12 @@ variable "region" {
   description = "GCP region for the cluster"
 }
 
+variable "zone_suffix" {
+  type        = string
+  description = "Zone suffix appended to region (a, b, c, d). Defaults to 'a'."
+  default     = "a"
+}
+
 variable "vpc_id" {
   type        = string
   description = "VPC network ID"

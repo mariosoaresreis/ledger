@@ -13,8 +13,12 @@ output "connection_name" {
   value       = google_sql_database_instance.postgres.connection_name
 }
 
-output "database_name" {
-  description = "PostgreSQL database name"
-  value       = google_sql_database.ledger.name
+output "public_ip" {
+  description = "Public IP address of the Cloud SQL instance (only set when enable_public_ip=true)"
+  value       = google_sql_database_instance.postgres.public_ip_address
 }
 
+output "db_host" {
+  description = "Best IP to use: public if enabled, else private"
+  value       = var.enable_public_ip ? google_sql_database_instance.postgres.public_ip_address : google_sql_database_instance.postgres.private_ip_address
+}

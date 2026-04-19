@@ -16,9 +16,16 @@ resource "google_sql_database_instance" "postgres" {
     disk_type         = "PD_SSD"
 
     ip_configuration {
-      # Disable public IP; only reachable via private VPC peering
-      ipv4_enabled    = false
-      private_network = var.vpc_self_link
+      ipv4_enabled    = var.enable_public_ip
+      private_network = var.enable_public_ip ? null : var.vpc_self_link
+
+      dynamic "authorized_networks" {
+        for_each = var.authorized_networks
+        content {
+          name  = authorized_networks.value.name
+          value = authorized_networks.value.value
+        }
+      }
     }
 
     backup_configuration {
@@ -40,7 +47,7 @@ resource "google_sql_database_instance" "postgres" {
 }
 
 resource "google_sql_database" "ledger" {
-  name     = "ledger"
+  name     = var.db_name
   instance = google_sql_database_instance.postgres.name
   project  = var.project_id
 }
