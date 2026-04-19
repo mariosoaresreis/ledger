@@ -27,7 +27,7 @@ variable "environment" {
 
 variable "region" {
   type        = string
-  description = "GCP region for query service – must differ from command region"
+  description = "GCP region for query service"
   default     = "us-east1"
 }
 

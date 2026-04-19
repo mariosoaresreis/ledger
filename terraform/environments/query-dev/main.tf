@@ -56,8 +56,9 @@ module "cloud_sql" {
   db_username   = var.db_username
   db_password   = var.db_password
   db_name       = "ledger_query"
-  # Public IP needed: query GKE (us-east1) and Cloud SQL (us-east1) are in separate VPCs
-  # with no private peering. For production, use Cloud SQL Auth Proxy instead.
+  # Public IP needed: query GKE and command Kafka are in separate VPCs with no private peering.
+  # The query service connects to Kafka via external LoadBalancer (34.134.143.95:9095).
+  # For production, use VPC peering + internal LB to avoid public exposure.
   enable_public_ip = true
   authorized_networks = [
     { name = "gke-query-nodes", value = "0.0.0.0/0" }

@@ -315,6 +315,13 @@ resource "helm_release" "kafka" {
     value = "12"
   }
 
+  # Single-broker settings: Kafka default replication factor is 3, which
+  # fails on a single-node cluster. Set to 1 for dev.
+  set {
+    name  = "controller.extraConfig"
+    value = "offsets.topic.replication.factor=1\ntransaction.state.log.replication.factor=1\ntransaction.state.log.min.isr=1\ndefault.replication.factor=1\nmin.insync.replicas=1"
+  }
+
   depends_on = [kubernetes_namespace.ledger]
 }
 
@@ -336,13 +343,13 @@ resource "kubernetes_service" "kafka_external" {
     selector = {
       "app.kubernetes.io/name"      = "kafka"
       "app.kubernetes.io/instance"  = var.kafka_release_name
-      "app.kubernetes.io/component" = "controller"
+      "app.kubernetes.io/component" = "controller-eligible"
     }
 
     port {
-      name        = "kafka"
-      port        = 9092
-      target_port = 9092
+      name        = "kafka-external"
+      port        = 9095
+      target_port = 9095
       protocol    = "TCP"
     }
   }
