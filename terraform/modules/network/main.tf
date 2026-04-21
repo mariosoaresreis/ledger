@@ -58,6 +58,12 @@ resource "google_service_networking_connection" "private_vpc_connection" {
   network                 = google_compute_network.vpc.id
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_service_range.name]
+
+  # ABANDON skips the API call to delete the peering connection during `terraform destroy`.
+  # This prevents the "Producer services are still using this connection" error that occurs
+  # when Cloud SQL hasn't fully released the connection before Terraform tries to remove it.
+  # GCP cleans up the peering automatically once all dependent services are deleted.
+  deletion_policy = "ABANDON"
 }
 
 # Firewall – allow internal traffic within the VPC

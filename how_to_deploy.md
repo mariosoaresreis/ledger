@@ -219,6 +219,19 @@ cd terraform/environments/dev
 terraform destroy
 ```
 
+Both the `google_service_networking_connection` and `google_sql_user`/`google_sql_database`
+resources use `deletion_policy = "ABANDON"`, so Terraform skips explicit deletion API calls
+for them and lets the Cloud SQL instance cascade-delete everything. A plain `terraform destroy`
+should complete cleanly.
+
+> **If you hit destroy errors on an existing environment** (state created before this fix):
+> ```bash
+> # Remove the stuck resources from state, then retry
+> terraform state rm module.network.google_service_networking_connection.private_vpc_connection
+> terraform state rm module.cloud_sql.google_sql_user.ledger
+> terraform destroy
+> ```
+
 > Cloud SQL has `deletion_protection = false` in dev. Set it to `true` for production.
 
 ---

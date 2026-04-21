@@ -50,6 +50,12 @@ resource "google_sql_database" "ledger" {
   name     = var.db_name
   instance = google_sql_database_instance.postgres.name
   project  = var.project_id
+
+  # ABANDON skips the explicit DROP DATABASE call during destroy.
+  # The Cloud SQL instance deletion cascades and removes all databases automatically.
+  # This avoids "role cannot be dropped because some objects depend on it" errors
+  # that occur when the user resource is destroyed before its owned objects are gone.
+  deletion_policy = "ABANDON"
 }
 
 resource "google_sql_user" "ledger" {
@@ -57,5 +63,10 @@ resource "google_sql_user" "ledger" {
   instance = google_sql_database_instance.postgres.name
   password = var.db_password
   project  = var.project_id
+
+  # Do not attempt to delete the user explicitly; the Cloud SQL instance
+  # deletion cascades and removes all users automatically.
+  # Explicit deletion fails with "role cannot be dropped because some objects depend on it".
+  deletion_policy = "ABANDON"
 }
 
