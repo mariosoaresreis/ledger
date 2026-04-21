@@ -1,0 +1,13 @@
+region                  = "us-east-1"
+environment             = "dev"
+db_password             = "CHANGE_ME"
+db_instance_class       = "db.t3.micro"
+node_instance_type      = "t3.medium"
+node_count              = 1
+min_nodes               = 1
+max_nodes               = 2
+app_image_tag           = "latest"
+app_replicas            = 1
+kafka_bootstrap_servers = "REPLACE_WITH_COMMAND_KAFKA_NLB_OR_INTERNAL_ADDRESS:9092"
+ecr_base_url            = "REPLACE_WITH_AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com"
+

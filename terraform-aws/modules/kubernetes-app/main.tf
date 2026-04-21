@@ -1,0 +1,266 @@
+# ── Namespace ────────────────────────────────────────────────────────────────
+resource "kubernetes_namespace" "ledger" {
+  metadata {
+    name   = "ledger"
+    labels = { managed-by = "terraform" }
+  }
+}
+
+# ── ConfigMap ─────────────────────────────────────────────────────────────────
+resource "kubernetes_config_map" "ledger_config" {
+  metadata {
+    name      = "ledger-command-config"
+    namespace = kubernetes_namespace.ledger.metadata[0].name
+  }
+
+  data = {
+    LEDGER_DB_HOST = var.db_host
+    LEDGER_DB_PORT = var.db_port
+
+    # Kafka is deployed in-cluster via Helm – use internal service DNS
+    LEDGER_KAFKA_BOOTSTRAP_SERVERS = "${var.kafka_release_name}.${kubernetes_namespace.ledger.metadata[0].name}.svc.cluster.local:9092"
+
+    LEDGER_REDIS_HOST = var.redis_host != "" ? var.redis_host : "redis.${kubernetes_namespace.ledger.metadata[0].name}.svc.cluster.local"
+    LEDGER_REDIS_PORT = "6379"
+  }
+}
+
+# ── Secret ────────────────────────────────────────────────────────────────────
+resource "kubernetes_secret" "ledger_secret" {
+  metadata {
+    name      = "ledger-command-secret"
+    namespace = kubernetes_namespace.ledger.metadata[0].name
+  }
+
+  data = {
+    LEDGER_DB_USERNAME = var.db_username
+    LEDGER_DB_PASSWORD = var.db_password
+  }
+
+  type = "Opaque"
+}
+
+# ── In-Cluster Redis ──────────────────────────────────────────────────────────
+resource "kubernetes_stateful_set" "redis" {
+  count            = var.redis_host == "" ? 1 : 0
+  wait_for_rollout = false
+
+  metadata {
+    name      = "redis"
+    namespace = kubernetes_namespace.ledger.metadata[0].name
+    labels    = { app = "redis", managed-by = "terraform" }
+  }
+
+  spec {
+    service_name = "redis"
+    replicas     = 1
+
+    selector { match_labels = { app = "redis" } }
+
+    template {
+      metadata { labels = { app = "redis" } }
+
+      spec {
+        container {
+          name              = "redis"
+          image             = "redis:7-alpine"
+          image_pull_policy = "IfNotPresent"
+
+          port { container_port = 6379 }
+
+          resources {
+            requests = { cpu = "50m", memory = "64Mi" }
+            limits   = { cpu = "100m", memory = "128Mi" }
+          }
+
+          volume_mount {
+            name       = "redis-data"
+            mount_path = "/data"
+          }
+        }
+      }
+    }
+
+    volume_claim_template {
+      metadata { name = "redis-data" }
+      spec {
+        access_modes       = ["ReadWriteOnce"]
+        storage_class_name = var.storage_class
+        resources { requests = { storage = "1Gi" } }
+      }
+    }
+  }
+
+  depends_on = [kubernetes_namespace.ledger]
+}
+
+resource "kubernetes_service" "redis" {
+  count = var.redis_host == "" ? 1 : 0
+
+  metadata {
+    name      = "redis"
+    namespace = kubernetes_namespace.ledger.metadata[0].name
+  }
+
+  spec {
+    cluster_ip = "None"
+    selector   = { app = "redis" }
+    port {
+      port        = 6379
+      target_port = 6379
+    }
+  }
+}
+
+# ── Kafka (Bitnami Helm, same as GCP) ────────────────────────────────────────
+resource "helm_release" "kafka" {
+  name       = var.kafka_release_name
+  repository = "https://charts.bitnami.com/bitnami"
+  chart      = "kafka"
+  version    = "26.8.5"
+  namespace  = kubernetes_namespace.ledger.metadata[0].name
+  timeout    = 600
+  wait       = false
+
+  set { name = "controller.replicaCount";    value = tostring(var.kafka_replicas) }
+  set { name = "broker.replicaCount";         value = "0" }
+  set { name = "controller.persistence.enabled"; value = "true" }
+  set { name = "controller.persistence.size"; value = "8Gi" }
+  set { name = "controller.persistence.storageClass"; value = var.storage_class }
+  set { name = "listeners.client.protocol";   value = "PLAINTEXT" }
+  set { name = "listeners.controller.protocol"; value = "PLAINTEXT" }
+  set { name = "listeners.interbroker.protocol"; value = "PLAINTEXT" }
+  set { name = "externalAccess.enabled";       value = "false" }
+  set { name = "serviceAccount.create";        value = "true" }
+  set { name = "image.registry";               value = "public.ecr.aws" }
+  set { name = "image.repository";             value = "bitnami/kafka" }
+  set { name = "image.tag";                    value = "3.7.0" }
+  set { name = "controller.resources.requests.cpu";    value = "100m" }
+  set { name = "controller.resources.requests.memory"; value = "512Mi" }
+  set { name = "controller.resources.limits.cpu";      value = "500m" }
+  set { name = "controller.resources.limits.memory";   value = "768Mi" }
+  set { name = "controller.heapOpts";          value = "-Xmx512m -Xms512m" }
+  set { name = "controller.livenessProbe.enabled";  value = "false" }
+  set { name = "controller.readinessProbe.enabled"; value = "false" }
+  set { name = "livenessProbe.initialDelaySeconds";  value = "120" }
+  set { name = "livenessProbe.failureThreshold";     value = "12" }
+  set { name = "readinessProbe.initialDelaySeconds"; value = "90" }
+  set { name = "readinessProbe.failureThreshold";    value = "12" }
+
+  # Single-broker: replication factor 1
+  set {
+    name  = "controller.extraConfig"
+    value = "offsets.topic.replication.factor=1\ntransaction.state.log.replication.factor=1\ntransaction.state.log.min.isr=1\ndefault.replication.factor=1\nmin.insync.replicas=1"
+  }
+
+  depends_on = [kubernetes_namespace.ledger]
+}
+
+# ── Application Deployment ────────────────────────────────────────────────────
+resource "kubernetes_deployment" "ledger_app" {
+  wait_for_rollout = false
+
+  metadata {
+    name      = "ledger-command-service"
+    namespace = kubernetes_namespace.ledger.metadata[0].name
+    labels    = { app = "ledger-command-service", managed-by = "terraform" }
+  }
+
+  spec {
+    replicas = var.app_replicas
+
+    selector { match_labels = { app = "ledger-command-service" } }
+
+    template {
+      metadata { labels = { app = "ledger-command-service" } }
+
+      spec {
+        container {
+          name              = "ledger-command-service"
+          image             = var.app_image
+          image_pull_policy = "Always"
+
+          port { container_port = 8080 }
+
+          env_from { config_map_ref { name = kubernetes_config_map.ledger_config.metadata[0].name } }
+          env_from { secret_ref    { name = kubernetes_secret.ledger_secret.metadata[0].name } }
+
+          readiness_probe {
+            http_get { path = "/actuator/health"; port = 8080 }
+            initial_delay_seconds = 120
+            period_seconds        = 10
+            failure_threshold     = 5
+          }
+
+          liveness_probe {
+            http_get { path = "/actuator/health"; port = 8080 }
+            initial_delay_seconds = 180
+            period_seconds        = 15
+            failure_threshold     = 3
+          }
+
+          resources {
+            requests = { cpu = "50m", memory = "128Mi" }
+            limits   = { cpu = "200m", memory = "256Mi" }
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [
+    helm_release.kafka,
+    kubernetes_config_map.ledger_config,
+    kubernetes_secret.ledger_secret,
+  ]
+}
+
+# ── Service + ALB Ingress ─────────────────────────────────────────────────────
+resource "kubernetes_service" "ledger_app" {
+  metadata {
+    name      = "ledger-command-service"
+    namespace = kubernetes_namespace.ledger.metadata[0].name
+    labels    = { app = "ledger-command-service", managed-by = "terraform" }
+  }
+
+  spec {
+    selector = { app = "ledger-command-service" }
+    port {
+      port        = 80
+      target_port = 8080
+    }
+    type = "NodePort"
+  }
+}
+
+resource "kubernetes_ingress_v1" "ledger_app" {
+  metadata {
+    name      = "ledger-command-service"
+    namespace = kubernetes_namespace.ledger.metadata[0].name
+    annotations = {
+      "kubernetes.io/ingress.class"               = "alb"
+      "alb.ingress.kubernetes.io/scheme"          = "internet-facing"
+      "alb.ingress.kubernetes.io/target-type"     = "ip"
+    }
+  }
+
+  spec {
+    rule {
+      http {
+        path {
+          path      = "/"
+          path_type = "Prefix"
+          backend {
+            service {
+              name = kubernetes_service.ledger_app.metadata[0].name
+              port { number = 80 }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [kubernetes_service.ledger_app]
+}
+
