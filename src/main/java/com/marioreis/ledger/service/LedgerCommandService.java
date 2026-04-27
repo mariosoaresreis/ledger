@@ -201,6 +201,31 @@ public class LedgerCommandService {
         );
     }
 
+    /**
+     * Execute a transfer between two accounts.
+     *
+     * Behaviour and important invariants:
+     * - Validates that source and target are different accounts.
+     * - Loads both aggregates and ensures they are ACTIVE.
+     * - Normalises and validates currency on both accounts.
+     * - Ensures the source has sufficient balance before attempting the transfer.
+     * - Creates a dedicated transfer aggregate (new UUID) and appends a
+     *   TRANSFER_INITIATED event with version 1 for that aggregate.
+     * - Appends an ACCOUNT_DEBITED event for the source and an ACCOUNT_CREDITED
+     *   event for the target using the next optimistic version for each account.
+     * - Each append uses appendEventAndOutbox which performs the event-store append,
+     *   writes the outbox entry and publishes the event to Kafka. Concurrency
+     *   conflicts during append will surface as a LedgerException.conflict.
+     *
+     * This method assumes it is executed as part of the idempotent command flow
+     * (see executeIdempotent) so idempotency reservation/complete is handled by
+     * the caller. It returns a CommandResponse containing receipts for the
+     * three events (initiated, debited, credited) and the transfer id as the
+     * aggregate id for the overall operation.
+     *
+     * Throws LedgerException for validation failures (unprocessable, not found,
+     * or conflict in case of concurrent modifications).
+     */
     private CommandResponse handleTransfer(UUID idempotencyKey, TransferRequest request) {
         if (request.sourceAccountId().equals(request.targetAccountId())) {
             throw LedgerException.unprocessable("Transfers require different source and target accounts");
